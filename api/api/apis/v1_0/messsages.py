@@ -8,6 +8,7 @@ ns = api.namespace(
     'messages', description='Messages Endpoint', decorators=[jwt_required])
 
 
-@ns.route('/<string:message_id>')
+@ns.route('/<string:message_id>/apply_filter')
 class Message(Resource):
-    def po
+    def post(self, message_id):
+        raise NotImplementedError

@@ -20,8 +20,9 @@ jwt = JWTManager()
 jwt._set_error_handler_callbacks(api)
 from . import (
     auth,
-    example,
-    chats
+    chats,
+    filters,
+    users
 )
 
 # Use it to export documentation

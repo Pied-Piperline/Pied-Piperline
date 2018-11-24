@@ -1,12 +1,15 @@
 aniso8601==4.0.1
 astroid==2.0.4
 autopep8==1.4.3
+certifi==2018.10.15
+chardet==3.0.4
 Click==7.0
 Flask==1.0.2
 Flask-Cors==3.0.7
 Flask-JWT-Extended==3.13.1
 flask-restplus==0.12.1
 gunicorn==19.9.0
+idna==2.7
 isort==4.3.4
 itsdangerous==1.1.0
 Jinja2==2.10
@@ -18,7 +21,9 @@ pycodestyle==2.4.0
 PyJWT==1.6.4
 pylint==2.1.1
 pytz==2018.7
+requests==2.20.1
 rethinkdb==2.3.0.post6
 six==1.11.0
+urllib3==1.24.1
 Werkzeug==0.14.1
 wrapt==1.10.11

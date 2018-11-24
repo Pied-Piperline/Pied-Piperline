@@ -10,7 +10,10 @@ from flask_restplus import (inputs,
                             abort)
 from flask_jwt_extended import (jwt_required,
                                 get_jwt_identity)
+from typing import List
+import requests
 from . import api
+from api import models
 import rethinkdb as r
 from functools import wraps
 
@@ -30,11 +33,9 @@ message_model = ns.model(
     name='Message',
     model={
         'message_id': fields.String,
-        'chat_id': fields.String,
         'sender_id': fields.String,
-        'receiver_id': fields.String,
         'created_at': fields.String,
-        'value_ids': fields.List(fields.Nested(value_model))
+        'values': fields.List(fields.Nested(value_model))
     }
 )
 
@@ -157,13 +158,25 @@ class Chat(Resource):
                     'messages': r.table('messages').filter({
                         'chat_id': chat_id,
                         'receiver_id': user_id,
-                    }).coerce_to('array')
+                    }).order_by(r.asc('created_at')).merge(
+                        lambda message: {
+                            'values': r.table('values').filter(
+                                lambda value: message['value_ids'].contains(
+                                    value['id'])
+                            ).coerce_to('array')
+                        }
+                    ).pluck(
+                        'message_id',
+                        'sender_id',
+                        'created_at',
+                        'values'
+                    ).coerce_to('array')
                 }
             ).run(conn)
         return chat, 200
 
 
-@ns.route('/string:chat_id/messages')
+@ns.route('/<string:chat_id>/messages')
 class ChatMessages(Resource):
     method_decorators = [check_if_chat_exists, check_access]
 
@@ -196,9 +209,81 @@ class ChatMessages(Resource):
     def post(self, chat_id: str):
         user_id = get_jwt_identity()
         with db_connection() as conn:
-            r.table('messages').insert({
-                'chat_id': chat_id,
-                'sender_id': user_id,
-                'created_at': pytz.timezone('Europe/Helsinki').localize(datetime.now())
+            # Group filters
+            chat_response = r.table('chats').get(chat_id).run(conn)
+            chat = models.Chat(**chat_response)
+            args = self.post_parser.parse_args()
+            value = args['value']
+            type = args['type']
+            filters: List[str] = r.table('filters').filter(
+                lambda filter:
+                    r.table('chats').get(chat_id)[
+                        'default_filter_ids'].contains(filter['id'])
+            ).pluck(
+                'external_url',
+                'input_type',
+                'output_type'
+            ).run(conn)
+            current_value = value
+            current_type = type
+
+            for f in filters:
+                f = models.Filter(f)
+                if not (current_type == f.input_type):
+                    break
+
+                if f.input_type == 'text':
+                    res = requests.post(
+                        f.external_url,
+                        json={
+                            'value': current_value
+                        })
+                    if not res.is_json():
+                        break
+                    if 'value' not in res.json():
+                        break
+                    current_value = res.json()['value']
+                elif f.input_type == 'image':
+                    res = requests.post(
+                        f.external_url,
+                        data=current_value
+                    )
+                    current_value = res.content
+                current_type = f.output_type
+
+            res = r.table('values').insert({
+                'content': current_value,
+                'type': current_type
             }).run(conn)
-        # todo: create message for every receiver and send it to receivers
+            if 'generated_keys' not in res or len(res['generated_keys']) != 1:
+                raise NotImplementedError
+            value_id = res['generated_keys'][0]
+            # send message b
+            for current_user_id in chat.user_ids:
+                current_user_response = r.table(
+                    'users').get(current_user_id).run(conn)
+                current_user = models.User(**current_user_response)
+                res = r.table('messages').insert({
+                    'message_id': r.uuid(),
+                    'chat_id': chat_id,
+                    'sender_id': user_id,
+                    'receiver_id': current_user.id,
+                    'created_at': r.now(),
+                    'value_ids': [value_id],
+                    'filter_ids': list()
+                }).run(conn)
+                if 'generated_keys' not in res or len(res['generated_keys']) != 1:
+                    raise NotImplementedError
+                message_generated_id = res['generated_keys'][0]
+
+                for f_id in current_user.default_filter_ids:
+                    current_filter_external_url = r.table(
+                        'filters').get(f_id).run(conn)
+                    current_filter_response = None  # do filter request
+                    r.table('messages').get(message_generated_id).update(
+                        lambda message: {
+                            'value_ids': message['value_ids'].append(current_filter_response),
+                            'filter_ids': message['filter_ids'].append(f_id)
+                        }
+                    ).run(conn)
+        return
