@@ -1,4 +1,4 @@
-version: '3.1'
+version: '2'
 services:
   db:
     image: "rethinkdb:2.3.6"
@@ -10,7 +10,7 @@ services:
   api:
     build: ./api
     ports:
-      - "3000:5000"
+      - "5000:5000"
     environment:
       - RDB_HOST=db
       - RDB_PORT=28015
