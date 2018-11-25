@@ -238,11 +238,11 @@ class ChatMessages(Resource):
                         json={
                             'value': current_value
                         })
-                    if not res.is_json():
-                        break
-                    if 'value' not in res.json():
-                        break
-                    current_value = res.json()['value']
+                    try:
+                        content = res.json()['value']
+                    except:
+                        raise NotImplementedError
+                    current_value = content
                 elif f.input_type == 'image':
                     res = requests.post(
                         f.external_url,
@@ -263,7 +263,7 @@ class ChatMessages(Resource):
                 current_user_response = r.table(
                     'users').get(current_user_id).run(conn)
                 current_user = models.User(**current_user_response)
-                res = r.table('messages').insert({
+                message_generated_res = r.table('messages').insert({
                     'message_id': r.uuid(),
                     'chat_id': chat_id,
                     'sender_id': user_id,
@@ -272,9 +272,9 @@ class ChatMessages(Resource):
                     'value_ids': [value_id],
                     'filter_ids': list()
                 }).run(conn)
-                if 'generated_keys' not in res or len(res['generated_keys']) != 1:
+                if 'generated_keys' not in message_generated_res or len(message_generated_res['generated_keys']) != 1:
                     raise NotImplementedError
-                message_generated_id = res['generated_keys'][0]
+                message_generated_id = message_generated_res['generated_keys'][0]
 
                 for f_id in current_user.default_filter_ids:
                     current_filter_external_url = r.table(
@@ -286,4 +286,4 @@ class ChatMessages(Resource):
                             'filter_ids': message['filter_ids'].append(f_id)
                         }
                     ).run(conn)
-        return
+        return message_generated_id

@@ -15,11 +15,25 @@ import requests
 from . import api
 from api import models
 import rethinkdb as r
+from functools import wraps
 
 ns: Namespace = api.namespace('filters',
-                              description='Filters Ednpoint',
+                              description='Filters Endpoint',
                               decorators=[])
 
+
+@ns.response(404, 'Filter with given \'filter_id\' not found')
+def check_if_filter_exists(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        filter_id = kwargs['filter_id']
+        with db_connection() as conn:
+            filter_exists = r.table('filters').get_all(
+                filter_id).count().eq(1).run(conn)
+            if not filter_exists:
+                return abort(404, 'Filter Not Found')
+        return f(*args, **kwargs)
+    return wrapper
 
 @ns.route('/')
 class Filters(Resource):
@@ -43,3 +57,11 @@ class Filters(Resource):
                 'input_type': input_type
             }).run(conn)
         return list(filters)
+
+@ns.route('/<string:filter_id>')
+class Filter(Resource):
+    method_decorators=[check_if_filter_exists]
+    def get(self, filter_id):
+        with db_connection() as conn:
+            f = r.table('filters').get(filter_id).run(conn)
+        return f

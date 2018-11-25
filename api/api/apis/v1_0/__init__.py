@@ -22,6 +22,7 @@ from . import (
     auth,
     chats,
     filters,
+    messsages,
     users
 )
 

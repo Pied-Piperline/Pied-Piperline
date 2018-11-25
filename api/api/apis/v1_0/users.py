@@ -37,6 +37,9 @@ class UserFilters(Resource):
         filter_id = args['filter_id']
         user_id = get_jwt_identity()
         with db_connection() as conn:
+            user_already_has_filter = r.table('users').get(user_id)['added_filter_ids'].contains(filter_id).run(conn)
+            if user_already_has_filter:
+                return 
             r.table('users').get(user_id).update(
                 lambda user: {
                     'added_filter_ids': user['added_filter_ids'].append(filter_id)
