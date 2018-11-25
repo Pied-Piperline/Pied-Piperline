@@ -99,15 +99,17 @@ class MessageApplyFilter(Resource):
                     'type': f['output_type'],
                     'content': content
                 }
-            elif value['type'] == 'image':
-                res = requests.post(
-                    f['external_url'],
-                    data=value['content']
-                )
-                new_value = {
-                    'type': f['output_type'],
-                    'content': res.content
-                }
+            else:
+                return abort(400, 'Bad value (use only text)')
+            # elif value['type'] == 'image':
+            #     res = requests.post(
+            #         f['external_url'],
+            #         data=value['content']
+            #     )
+            #     new_value = {
+            #         'type': f['output_type'],
+            #         'content': res.content
+            #     }
             generated_value = r.table('values').insert(new_value).run(conn)
             if 'generated_keys' not in generated_value or len(generated_value['generated_keys']) != 1:
                 raise NotImplementedError

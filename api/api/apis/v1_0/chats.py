@@ -113,10 +113,14 @@ class Chats(Resource):
                     chat['user_ids'].contains(user_id)
             ).merge(
                 lambda chat: {
-                    'last_message': r.table('messages').filter({
+                    'last_message': r.branch(r.table('messages').filter({
                         'chat_id': chat['id'],
                         'receiver_id': user_id,
-                    }).order_by(r.desc('created_at'))[0].merge(
+                    }).count().eq(0), None,
+                        r.table('messages').filter({
+                            'chat_id': chat['id'],
+                            'receiver_id': user_id,
+                        }).order_by(r.desc('created_at'))[0].merge(
                         lambda message: {
                             'content': r.table('values').get(message['value_ids'][-1])['content'],
                             'sender_name': r.table('users').get(message['sender_id'])['name'],
@@ -127,7 +131,7 @@ class Chats(Resource):
                         'sender_name',
                         'content',
                         'type'
-                    ),
+                    )),
                     'participants_count': chat['user_ids'].count()
                 }
             ).pluck(
@@ -149,9 +153,10 @@ class Chats(Resource):
 
 @ns.route('/<string:chat_id>')
 class Chat(Resource):
-    method_decorators = [check_if_chat_exists, check_access]
+    method_decorators = [check_if_chat_exists]
 
     @ns.marshal_with(chat_model)
+    @check_access
     def get(self, chat_id: str):
         user_id = get_jwt_identity()
         with db_connection() as conn:
@@ -176,6 +181,16 @@ class Chat(Resource):
                 }
             ).run(conn)
         return chat, 200
+
+    def post(self, chat_id):
+        user_id = get_jwt_identity()
+        with db_connection() as conn:
+            r.table('chats').get(chat_id).update(
+                lambda chat: {
+                    'user_ids': chat['user_ids'].append(user_id)
+                }
+            ).run(conn)
+        return
 
 
 @ns.route('/<string:chat_id>/messages')
@@ -218,9 +233,9 @@ class ChatMessagesText(Resource):
             value = args['value']
             type = args['type']
             filters: List[str] = r.table('filters').filter(
-                lambda filter:
+                lambda f:
                     r.table('chats').get(chat_id)[
-                        'default_filter_ids'].contains(filter['id'])
+                        'default_filter_ids'].contains(f['id'])
             ).pluck(
                 'external_url',
                 'input_type',
@@ -230,7 +245,7 @@ class ChatMessagesText(Resource):
             current_type = type
 
             for f in filters:
-                f = models.Filter(f)
+                f = models.Filter(**f)
                 if not (current_type == f.input_type):
                     break
 
@@ -241,22 +256,22 @@ class ChatMessagesText(Resource):
                             'value': current_value
                         })
                     try:
-                        content = res.json()['value']
+                        current_value = res.json()['value']
+                        current_type = f.output_type
                     except:
-                        raise NotImplementedError
-                    current_value = content
-                elif f.input_type == 'image':
-                    res = requests.post(
-                        f.external_url,
-                        data=current_value
-                    )
-                    current_value = res.content
+                        pass
+                # elif f.input_type == 'image':
+                #     res = requests.post(
+                #         f.external_url,
+                #         data=current_value
+                #     )
+                #     current_value = res.content
                 # elif f.input_type == 'audio':
                 #     res = requests.post(
                 #         f.external_url,
                 #         data=
                 #     )
-                current_type = f.output_type
+                
 
             res = r.table('values').insert({
                 'content': current_value,

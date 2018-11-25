@@ -73,12 +73,30 @@ class Auth(Resource):
         with db_connection() as conn:
             user_exists = r.table('users').filter({
                 'username': username,
-                'password': password
             }).count().eq(1).run(conn)
             if not user_exists:
-                return abort(code=400, messsage='Bad username of password')
+                res = r.table('users').insert({
+                    'username': username,
+                    'name': username,
+                    'password': password,
+                    'avatar': None,
+                    'added_filter_ids': list(),
+                    'default_filter_ids': list()
+                }).run(conn)
+                r.table('chats').filter({
+                    'name': 'Shared Chat'
+                }).update(
+                    lambda chat: {
+                        'user_ids': chat['user_ids'].append(res['generated_keys'][0])
+                    }
+                ).run(conn)
+            elif r.table('users').filter({
+                'username': username,
+                'password': password
+            }).count().ne(1).run(conn):
+                return abort(400, 'Bad password')
             user = r.table('users').filter({
-                'username': username, 
+                'username': username,
                 'password': password
             }).nth(0).run(conn)
             user = User(**user)

@@ -25,8 +25,8 @@ class Chat(object):
 
 @dataclass
 class Filter(object):
-    name: str
     external_url: str
+    name: str = None
     input_type: str = 'text'
     output_type: str = 'text'
     is_pipeline: bool = False
