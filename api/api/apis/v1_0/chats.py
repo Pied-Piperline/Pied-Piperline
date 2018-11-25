@@ -8,9 +8,11 @@ from flask_restplus import (inputs,
                             Resource,
                             fields,
                             abort)
+from flask import request
 from flask_jwt_extended import (jwt_required,
                                 get_jwt_identity)
 from typing import List
+from uuid import uuid4
 import requests
 from . import api
 from api import models
@@ -177,7 +179,7 @@ class Chat(Resource):
 
 
 @ns.route('/<string:chat_id>/messages')
-class ChatMessages(Resource):
+class ChatMessagesText(Resource):
     method_decorators = [check_if_chat_exists, check_access]
 
     post_parser: reqparse.RequestParser = ns.parser()
@@ -249,6 +251,11 @@ class ChatMessages(Resource):
                         data=current_value
                     )
                     current_value = res.content
+                # elif f.input_type == 'audio':
+                #     res = requests.post(
+                #         f.external_url,
+                #         data=
+                #     )
                 current_type = f.output_type
 
             res = r.table('values').insert({
@@ -287,3 +294,21 @@ class ChatMessages(Resource):
                         }
                     ).run(conn)
         return message_generated_id
+
+# UPLOAD_FOLDER = '/code/audios'
+# import os
+# @ns.route('/<string:chat_id>/messages')
+# class ChatMessages(Resource):
+#     def post(self, chat_id):
+#         user_id = get_jwt_identity()
+#         content_type = request.headers.get('Content-Type')
+#         with db_connection() as conn:
+#             chat_response = r.table('chats').get(chat_id).run(conn)
+#             chat = models.Chat(**chat_response)
+
+#             if content_type == 'application/json':
+#                 value = request.json()['value']
+#             elif content_type == 'multipart/form-data':
+#                 print('====================')
+#                 f = request.files['audio']
+#                 f.save(os.path.join(UPLOAD_FOLDER, f'{uuid4()}.wav'))

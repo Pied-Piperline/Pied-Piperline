@@ -17,7 +17,10 @@ services:
       - RDB_DB=pied_piperline
       - BUNDLE_API_ERRORS=1
       - JWT_SECRET_KEY=12345
+      - FLASK_ENV=development
     volumes:
+      - /etc/letsencrypt/live/pied-piperline.ml/fullchain.pem:/etc/letsencrypt/live/pied-piperline.ml/fullchain.pem:ro
+      - /etc/letsencrypt/live/pied-piperline.ml/privkey.pem:/etc/letsencrypt/live/pied-piperline.ml/privkey.pem:ro
       - ./api:/code:ro
     depends_on:
     - db
