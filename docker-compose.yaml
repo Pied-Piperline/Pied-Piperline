@@ -10,7 +10,7 @@ services:
   api:
     build: ./api
     ports:
-      - "5000:5000"
+      - "6000:5000"
     environment:
       - RDB_HOST=db
       - RDB_PORT=28015
@@ -19,8 +19,6 @@ services:
       - JWT_SECRET_KEY=12345
       - FLASK_ENV=development
     volumes:
-      - /etc/letsencrypt/live/pied-piperline.ml/fullchain.pem:/etc/letsencrypt/live/pied-piperline.ml/fullchain.pem:ro
-      - /etc/letsencrypt/live/pied-piperline.ml/privkey.pem:/etc/letsencrypt/live/pied-piperline.ml/privkey.pem:ro
       - ./api:/code:ro
     depends_on:
     - db
